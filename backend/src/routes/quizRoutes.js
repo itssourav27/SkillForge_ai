@@ -1,11 +1,12 @@
 const express = require("express");
 const router = express.Router();
+
 const protect = require("../middleware/authMiddleware");
-const { submitQuiz } = require("../controllers/quizController");
 
 const {
   createQuiz,
   getQuizById,
+  submitQuiz,
 } = require("../controllers/quizController");
 
 router.post("/", protect, createQuiz);

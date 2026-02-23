@@ -1,6 +1,8 @@
 const Quiz = require("../models/Quiz");
 const Attempt = require("../models/Attempt");
+const User = require("../models/User");
 const calculateScore = require("../utils/calculateScore");
+const redis = require("../config/redis");
 
 exports.createQuiz = async (req, res) => {
   try {
@@ -30,7 +32,6 @@ exports.getQuizById = async (req, res) => {
       return res.status(404).json({ message: "Quiz not found" });
     }
 
-    // Don't send correct answers to frontend
     const quizData = quiz.toObject();
     quizData.questions = quizData.questions.map((q) => ({
       question: q.question,
@@ -55,12 +56,10 @@ exports.submitQuiz = async (req, res) => {
       return res.status(404).json({ message: "Quiz not found" });
     }
 
-    const { answers } = req.body; // array of selected answers
+    const { answers } = req.body;
 
-    const { score, totalMarks, evaluatedAnswers } = calculateScore(
-      quiz,
-      answers,
-    );
+    const { score, totalMarks, evaluatedAnswers, weakTopics } =
+      calculateScore(quiz, answers);
 
     const attempt = await Attempt.create({
       user: req.user._id,
@@ -68,14 +67,29 @@ exports.submitQuiz = async (req, res) => {
       answers: evaluatedAnswers,
       score,
       totalMarks,
+      weakTopics,
     });
+
+    const user = await User.findById(req.user._id);
+    user.totalScore += score;
+    await user.save();
+
+    await redis.del(`dashboard:${req.user._id}`);
+
+    await redis.zadd(
+      "leaderboard",
+      user.totalScore,
+      user._id.toString()
+    );
 
     res.json({
       message: "Quiz submitted successfully",
       score,
       totalMarks,
+      weakTopics,
       attempt,
     });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
