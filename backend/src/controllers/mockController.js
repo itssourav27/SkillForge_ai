@@ -127,3 +127,33 @@ exports.submitMock = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+/**
+ * 📊 Get Latest Mock Analytics
+ */
+exports.getLatestMock = async (req, res) => {
+  try {
+    const mock = await MockTest.findOne({ user: req.user._id })
+      .sort({ startTime: -1 });
+
+    if (!mock) {
+      return res.json({ message: "No mock data" });
+    }
+
+    const accuracy =
+      mock.totalMarks > 0
+        ? ((mock.totalScore / mock.totalMarks) * 100).toFixed(2)
+        : "0.00";
+
+    res.json({
+      totalScore: mock.totalScore,
+      totalMarks: mock.totalMarks,
+      accuracy,
+      subjectBreakdown: mock.subjectBreakdown || {},
+      weakSubjects: mock.weakSubjects || [],
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
